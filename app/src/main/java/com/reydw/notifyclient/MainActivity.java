@@ -16,6 +16,7 @@ import android.widget.Button;
 import android.widget.Toast;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Set;
 import java.util.UUID;
@@ -58,7 +59,7 @@ public class MainActivity extends AppCompatActivity {
     refreshButton.setOnClickListener(new View.OnClickListener() {
       @Override
       public void onClick(View v) {
-        bluetoothClient.sendMessage("foobar".getBytes());
+//        bluetoothClient.sendMessage("foobar".getBytes());
       }
     });
 
@@ -94,8 +95,9 @@ public class MainActivity extends AppCompatActivity {
   public void connectToServer(BluetoothDevice server) {
     bluetoothClient = new BluetoothClient(server){
       @Override
-      public void onMessageReceived(byte[] bytes) {
-        Log.i(TAG, "Message received: " + new String(bytes));
+      public void onMessageReceived(NotificationForClient notificationForClient) {
+        Log.i(TAG, "Message received: ");
+        Log.i(TAG, notificationForClient.toString());
       }
     };
     bluetoothClient.start();
