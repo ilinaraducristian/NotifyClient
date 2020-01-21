@@ -24,6 +24,7 @@ public abstract class BluetoothClient extends Thread {
 
   BluetoothClient(BluetoothDevice server) {
     try {
+      server.get
       this.server = server.createRfcommSocketToServiceRecord(UUID.fromString(BLUETOOTH_UUID));
       this.server.connect();
       is = this.server.getInputStream();

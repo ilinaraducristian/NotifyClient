@@ -1,11 +1,12 @@
 package com.reydw.notifyclient;
 
-import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothClass;
 import android.bluetooth.BluetoothDevice;
+import android.content.Context;
 import android.content.Intent;
-import android.os.Build;
-import android.os.PowerManager;
+import android.content.SharedPreferences;
+import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -13,10 +14,6 @@ import android.os.Bundle;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.util.Log;
-import android.view.View;
-import android.view.Window;
-import android.view.WindowManager;
-import android.widget.Button;
 import android.widget.Toast;
 
 import com.reydw.notifyclient.actions.NotificationAction;
@@ -32,10 +29,13 @@ public class MainActivity extends AppCompatActivity {
 
   private ArrayList<BluetoothDevice> pairedBluetoothDevices;
   private BluetoothAdapter adapter;
-  private Button refreshButton;
   private RecyclerViewAdapter pairedDevicesRecyclerViewAdapter;
 
   private BluetoothClient bluetoothClient;
+  private Thread updatePairedDevicesListTimer;
+  private SharedPreferences preferences;
+
+  private boolean arePairedDevicesUpdating = false;
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -43,7 +43,6 @@ public class MainActivity extends AppCompatActivity {
     setContentView(R.layout.activity_main);
     pairedBluetoothDevices = new ArrayList<>();
     adapter = BluetoothAdapter.getDefaultAdapter();
-    refreshButton = findViewById(R.id.refreshButton);
     RecyclerView pairedDevicesRecyclerView = findViewById(R.id.pairedDevicesRecyclerView);
     LinearLayoutManager linearLayoutManager = new LinearLayoutManager(this);
 
@@ -66,29 +65,51 @@ public class MainActivity extends AppCompatActivity {
     pairedDevicesRecyclerView.setAdapter(pairedDevicesRecyclerViewAdapter);
     pairedDevicesRecyclerView.setLayoutManager(linearLayoutManager);
 
-    final Activity self = this;
-
-    refreshButton.setEnabled(true);
-    refreshButton.setOnClickListener(new View.OnClickListener() {
+    updatePairedDevicesListTimer = new Thread(new Runnable() {
       @Override
-      public void onClick(View v) {
-//        bluetoothClient.sendMessage("foobar".getBytes());
-//        PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
-//        final PowerManager.WakeLock wl = pm.newWakeLock( PowerManager.ON_AFTER_RELEASE | PowerManager.ACQUIRE_CAUSES_WAKEUP, "NotifyClient::WLTAG");
+      public void run() {
+        while(arePairedDevicesUpdating) {
+          listPairedDevices();
+          try {
+            Thread.sleep(1000);
+          }catch(InterruptedException e) {
+            Log.e(TAG, "updatePairedDevicesListTimer while loop", e);
+          }
+        }
       }
     });
 
-    if(adapter != null) {
-      if(adapter.isEnabled()) {
-        refreshButton.setEnabled(true);
-        listPairedDevices();
-      }else {
-        Intent enableBluetoothIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-        startActivityForResult(enableBluetoothIntent, BLUETOOTH_REQUEST_CODE);
-      }
+    preferences = getPreferences(Context.MODE_PRIVATE);
+//    SharedPreferences.Editor editor = preferences.edit();
+    String lastDevice = preferences.getString("lastDevice", null);
+    if(lastDevice == null) {
+
     }else {
-      Toast.makeText(this, "Device doesn't have bluetooth capabilities", Toast.LENGTH_SHORT).show();
+
     }
+
+//    if(adapter != null) {
+//      if(adapter.isEnabled()) {
+//        listPairedDevices();
+//      }else {
+//        Intent enableBluetoothIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+//        startActivityForResult(enableBluetoothIntent, BLUETOOTH_REQUEST_CODE);
+//      }
+//    }else {
+//      Toast.makeText(this, "Device doesn't have bluetooth capabilities", Toast.LENGTH_SHORT).show();
+//    }
+
+  }
+
+  @Override
+  protected void onPause() {
+    super.onPause();
+    arePairedDevicesUpdating = false;
+  }
+
+  @Override
+  protected void onDestroy() {
+    super.onDestroy();
 
   }
 
@@ -115,7 +136,7 @@ public class MainActivity extends AppCompatActivity {
         String actionName = "";
         switch(actionName) {
           case "NotificationAction":
-            NotificationAction notificationAction = (NotificationAction)action;
+            NotificationAction notificationAction = action;
             String appname = notificationAction.getAppname();
             String title = notificationAction.getTitle();
             break;
@@ -128,14 +149,22 @@ public class MainActivity extends AppCompatActivity {
   }
 
   private void listPairedDevices() {
-    refreshButton.setEnabled(false);
-    Set<BluetoothDevice> pairedBluetoothDevices = adapter.getBondedDevices();
-    this.pairedBluetoothDevices.clear();
-    if (pairedBluetoothDevices.size() > 0) {
-      this.pairedBluetoothDevices.addAll(pairedBluetoothDevices);
+    if(adapter == null) {
+      arePairedDevicesUpdating = false;
+    }else if(!adapter.isEnabled()) {
+      arePairedDevicesUpdating = false;
+    }else {
+      Set<BluetoothDevice> pairedBluetoothDevices = adapter.getBondedDevices();
+      this.pairedBluetoothDevices.clear();
+      if (pairedBluetoothDevices.size() > 0) {
+        this.pairedBluetoothDevices.addAll(pairedBluetoothDevices);
+      }
+      BluetoothDevice dv = this.pairedBluetoothDevices.get(0);
+      BluetoothClass cls = dv.getBluetoothClass();
+//      cls.
+
+      pairedDevicesRecyclerViewAdapter.notifyDataSetChanged();
     }
-    pairedDevicesRecyclerViewAdapter.notifyDataSetChanged();
-    refreshButton.setEnabled(true);
   }
 
 }
